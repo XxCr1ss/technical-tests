@@ -1,0 +1,60 @@
+# ===================================
+# Unity + Rider .gitignore
+# ===================================
+
+# --- Unity generated folders ---
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+
+# --- Build artifacts ---
+*.apk
+*.aab
+*.unitypackage
+*.app
+*.exe
+*.xcodeproj
+*.xcworkspace
+*.xcuserstate
+*.ipa
+
+# --- IDE specific (Rider, VS, VSCode) ---
+.idea/
+.vscode/
+*.suo
+*.user
+*.userprefs
+*.csproj
+*.unityproj
+*.sln
+*.DotSettings.user
+
+# --- OS generated files ---
+.DS_Store
+Thumbs.db
+
+# --- Crash Reports ---
+sysinfo.txt
+
+# --- Rider cache ---
+.idea/.idea.*
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/dataSources/
+.idea/**/httpRequests/
+
+# --- Other temporary Unity files ---
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
