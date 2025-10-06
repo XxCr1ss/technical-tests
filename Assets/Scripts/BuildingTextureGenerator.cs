@@ -19,10 +19,10 @@ public class BuildingTextureGenerator : MonoBehaviour {
   public Color facadeColor = new Color(0.03f, 0.05f, 0.08f);
   public Color windowOffColor = new Color(0.02f, 0.02f, 0.025f);
   public Color[] windowPalette = {
-    new Color(1f, 0.85f, 0.45f), // warm
-    new Color(0.45f, 1f, 0.6f), // greenish
-    new Color(0.6f, 0.6f, 1f) // cool
-  };
+                                         new Color(1f, 0.85f, 0.45f), // warm
+                                         new Color(0.45f, 1f, 0.6f), // greenish
+                                         new Color(0.6f, 0.6f, 1f) // cool
+                                 };
   public float emissionIntensity = 2f;
   [Header("Target")]
   public Material targetMaterial; // material to apply the textures
@@ -30,11 +30,10 @@ public class BuildingTextureGenerator : MonoBehaviour {
   public int randomSeed;
   public bool saveAsAsset;
   public string assetNamePrefix = "BuildingTex_";
-
   [Header("Top face (roof) clearing")]
-  public bool clearTopFace = true; // si true, limpiará la franja superior
-  [Range(0f, 0.5f)] public float topFaceNormalizedHeight = 0.12f; // fracción de la textura en Y que corresponde al techo
-
+  public bool clearTopFace = true; // if true, it will clear the top strip
+  [Range(0f, 0.5f)]
+  public float topFaceNormalizedHeight = 0.12f; // fraction of the texture in Y that corresponds to the roof
   [Header("Roof material")]
   public Material roofMaterial;
 
@@ -43,7 +42,6 @@ public class BuildingTextureGenerator : MonoBehaviour {
   public void GenerateFromInspector() {
     GenerateAndApply(randomSeed);
   }
-
   public void GenerateAndApply(int seed) {
     Random rng = new Random(seed);
 
@@ -130,8 +128,8 @@ public class BuildingTextureGenerator : MonoBehaviour {
       int yStart = textureHeight - topRows; // from this row up to top (inclusive)
       for (int y = yStart; y < textureHeight; y++) {
         for (int x = 0; x < textureWidth; x++) {
-          albedo.SetPixel(x, y, facadeColor); // asegurar color de fachada en el techo
-          emission.SetPixel(x, y, Color.black); // sin emisión en el techo
+          albedo.SetPixel(x, y, facadeColor); // ensure facade color on the roof
+          emission.SetPixel(x, y, Color.black); // no emission on the roof
         }
       }
     }
@@ -151,15 +149,15 @@ public class BuildingTextureGenerator : MonoBehaviour {
     }
 
     // ---- NEW: Ensure child "Roof" quad uses facadeColor ----
-    // Busca un hijo directo llamado "Roof" (case-sensitive). Si lo encuentra,
-    // instancia su material para no modificar assets compartidos y asigna el color.
+    // Search for a direct child named "Roof" (case-sensitive). If found,
+    // instance its material to avoid modifying shared assets and assign the color.
     Transform roofTransform = transform.Find("Roof");
     if (roofTransform != null) {
       Renderer roofRenderer = roofTransform.GetComponent<Renderer>();
       if (roofRenderer != null) {
-        // Instanciar material para no alterar assets compartidos en el proyecto
-        Material roofMat = roofMaterial; // material instance (creates one if needed)
-        // Asignar color en las propiedades más comunes:
+        // Material instance (creates one if needed)
+        Material roofMat = roofMaterial;
+        // Assign color to the most common properties:
         // - URP/Lit: "_BaseColor"
         // - Standard: "_Color"
         if (roofMat.HasProperty("_BaseColor")) {
@@ -168,25 +166,31 @@ public class BuildingTextureGenerator : MonoBehaviour {
         if (roofMat.HasProperty("_Color")) {
           roofMat.SetColor("_Color", facadeColor);
         }
-        // Asegurar que la textura principal (si existe) no esté tintando el color
-        // Si quieres eliminar la textura y usar color plano descomenta la línea siguiente:
+        // Ensure the main texture (if it exists) is not tinting the color
+        // If you want to remove the texture and use a plain color, uncomment the following line:
         // roofMat.SetTexture("_MainTex", null);
 
-        // Desactivar emisión en el techo (asegurar negro)
+        // Disable emission on the roof (ensure black)
         if (roofMat.HasProperty("_EmissionColor")) {
           roofMat.SetColor("_EmissionColor", Color.black);
         }
         roofMat.DisableKeyword("_EMISSION");
-        // Asignar la instancia de vuelta (roofRenderer.material ya lo hace), pero reafirmamos sharedMaterial en editor si hace falta.
-#if UNITY_EDITOR
+        // Assign the instance back (roofRenderer.material already does this), but reaffirm sharedMaterial in the editor if necessary.
+        #if UNITY_EDITOR
         EditorUtility.SetDirty(roofMat);
-#endif
-      } else {
-        Debug.LogWarning($"BuildingTextureGenerator: child 'Roof' encontrado en '{name}' pero no tiene Renderer. Agrega un MeshRenderer o SpriteRenderer al Quad.");
+        #endif
       }
-    } else {
-      // No encontramos hijo llamado "Roof". Esto no es un error crítico, solo informativo.
-      Debug.Log($"BuildingTextureGenerator: no se encontró un hijo llamado 'Roof' en '{name}'. Si quieres que el techo adopte el color, crea un child Quad llamado 'Roof'.");
+      else {
+        Debug.LogWarning(
+          $"BuildingTextureGenerator: child 'Roof' found on '{name}' but has no Renderer. Add a MeshRenderer or SpriteRenderer to the Quad."
+        );
+      }
+    }
+    else {
+      // We did not find a child named "Roof". This is not a critical error, just informational.
+      Debug.Log(
+        $"BuildingTextureGenerator: no child named 'Roof' found on '{name}'. If you want the roof to adopt the color, create a child Quad called 'Roof'."
+      );
     }
     // ---------------------------------------------------------------
 

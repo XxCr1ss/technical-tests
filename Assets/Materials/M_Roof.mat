@@ -62,8 +62,10 @@ Material:
     m_Ints: []
     m_Floats:
     - _BumpScale: 1
+    - _ColorSteps: 6
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
+    - _DitherIntensity: 0.9
     - _DstBlend: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
@@ -72,6 +74,7 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _PixelSize: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
@@ -79,5 +82,8 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 0.066082224, g: 0.097510226, b: 0.14150941, a: 1}
+    - _ColorTint: {r: 0, g: 0, b: 0.09411765, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FakeLightColor: {r: 0.9, g: 0.9, b: 0.85, a: 1}
+    - _FakeLightDir: {r: 0.5, g: 0.7, b: 0.2, a: 0}
   m_BuildTextureStacks: []

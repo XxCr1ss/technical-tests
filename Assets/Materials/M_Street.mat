@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Street
-  m_Shader: {fileID: 46, guid: 0000000000000000f000000000000000, type: 0}
+  m_Shader: {fileID: 4800000, guid: 8b8f6aed56149674096b519326a7e41b, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -62,8 +62,10 @@ Material:
     m_Ints: []
     m_Floats:
     - _BumpScale: 1
+    - _ColorSteps: 16
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
+    - _DitherIntensity: 0.9
     - _DstBlend: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
@@ -72,6 +74,7 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _PixelSize: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
@@ -79,5 +82,8 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 0.14117648, g: 0.14901961, b: 0.19607845, a: 1}
+    - _ColorTint: {r: 0.47450984, g: 0.37254903, b: 0.4156863, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FakeLightColor: {r: 0.9, g: 0.9, b: 0.85, a: 1}
+    - _FakeLightDir: {r: 0.5, g: 0.7, b: 0.2, a: 0}
   m_BuildTextureStacks: []

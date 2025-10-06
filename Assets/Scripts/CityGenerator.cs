@@ -22,13 +22,13 @@ public class CityGenerator : MonoBehaviour {
   // Street
   public float streetWidth = 3f;
 
-  // Patent - Seed
+  // Parent - Seed
   public Transform parentHolder;
   public int randomSeed;
 
   // Sidewalks
   public float sidewalkWidth = 0.6f;
-  public float sidewalkHeightOffset = 0.12f; // altura de la acera (la base sobre la que apoyarán edificios)
+  public float sidewalkHeightOffset = 0.12f; // Sidewalk height (the base on which buildings will rest)
   public Vector3 sidewalkOffset = new Vector3(-1.7f, 0f, -1.7f);
 
   // Materials
@@ -44,17 +44,15 @@ public class CityGenerator : MonoBehaviour {
   public float taxiLightRange = 3f;
   public float taxiLightAngule = 90f;
   public bool generateOnStart = true;
-
-  // Internal list to trank created objects
-  readonly List<GameObject> createdBuildings = new List<GameObject>();
-
   [Header("Fire / damage effects")]
-  public ParticleSystem firePrefab;                // prefab de partículas de fuego (arrastrar en inspector)
-  [Range(0f, 1f)] public float fireSpawnProbability = 0.2f; // probabilidad por edificio (ej. 0.2 = 20%)
-  public float fireYOffset = 0.1f;                 // offset vertical sobre la azotea para evitar z-fighting
-  public bool attachFireToRoofChild = true;        // si true, busca child "Roof" y lo usa como ancla
-  public int maxTotalFires = 100;                  // límite global para evitar exceso de partículas
+  public ParticleSystem firePrefab; // Fire particle prefab (drag into inspector)
+  [Range(0f, 1f)] public float fireSpawnProbability = 0.2f; // Probability per building (e.g., 0.2 = 20%)
+  public float fireYOffset = 0.1f; // Vertical offset above the rooftop to prevent z-fighting
+  public bool attachFireToRoofChild = true; // If true, searches for child "Roof" and uses it as an anchor
+  public int maxTotalFires = 100; // Global limit to prevent excessive particles
 
+  // Internal list to track created objects
+  readonly List<GameObject> createdBuildings = new List<GameObject>();
   void Start() {
     if (generateOnStart) {
       GenerateCity();
@@ -72,37 +70,43 @@ public class CityGenerator : MonoBehaviour {
   }
   public void GenerateCity() {
     if (buildingPrefab == null) {
-      Debug.LogWarning("CityGenerator: buildingPrefab no asignado.");
+      Debug.LogWarning("CityGenerator: buildingPrefab not assigned.");
       return;
     }
 
-    ClearCity(); // limpiar antes de generar
+    ClearCity(); // Clear before generating
     Random.InitState(randomSeed);
 
-    // ---------- Preparación: elegir índices aleatorios de edificios que tendrán fuego ----------
-    int totalBuildings = blocksX * blocksY * 9; // 3x3 edificios por bloque
-    int firesToSpawn = Mathf.Clamp(Mathf.RoundToInt(totalBuildings * fireSpawnProbability), 0, Mathf.Min(totalBuildings, maxTotalFires));
+    // ---------- Preparation: select random indices of buildings that will have fire ----------
+    int totalBuildings = blocksX * blocksY * 9; // 3x3 buildings per block
+    int firesToSpawn = Mathf.Clamp(
+      Mathf.RoundToInt(totalBuildings * fireSpawnProbability),
+      0,
+      Mathf.Min(totalBuildings, maxTotalFires)
+    );
 
-    HashSet<int> fireIndices = new HashSet<int>();
+    var fireIndices = new HashSet<int>();
     if (firesToSpawn > 0) {
-      // creamos lista de índices [0..totalBuildings-1]
-      List<int> indices = new List<int>(totalBuildings);
+      // Create list of indices [0..totalBuildings-1]
+      var indices = new List<int>(totalBuildings);
       for (int i = 0; i < totalBuildings; i++) indices.Add(i);
 
-      // Fisher-Yates shuffle usando Random (ya inicializado con Random.InitState(randomSeed))
+      // Fisher-Yates shuffle using Random (already initialized with Random.InitState(randomSeed))
       for (int i = indices.Count - 1; i > 0; i--) {
         int j = Random.Range(0, i + 1);
-        int tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp;
+        int tmp = indices[i];
+        indices[i] = indices[j];
+        indices[j] = tmp;
       }
 
-      // tomamos los primeros firesToSpawn índices mezclados
+      // Take the first firesToSpawn shuffled indices
       for (int k = 0; k < firesToSpawn; k++) fireIndices.Add(indices[k]);
 
-      Debug.Log($"CityGenerator: seleccionados {fireIndices.Count} edificios para fuego (de {totalBuildings} posibles).");
+      Debug.Log($"CityGenerator: selected {fireIndices.Count} buildings for fire (out of {totalBuildings} possible).");
     }
-    // variable para rastrear índice global del edificio al crear (debe inicializarse antes de crear edificios)
+    // Variable to track the global building index during creation (must be initialized before creating buildings)
     int currentBuildingGlobalIndex = 0;
-    // ---------- fin preparación ----------
+    // ---------- end preparation ----------
 
     // Crear o usar parentHolder
     Transform parentTransform = parentHolder;
@@ -119,26 +123,26 @@ public class CityGenerator : MonoBehaviour {
       parentTransform = holder.transform;
     }
 
-    // Tamaños útiles
-    float cellSizeX = buildingSize.x + gapBetweenBuildings; // espacio por "celda" en X entre centros
-    float cellSizeZ = buildingSize.y + gapBetweenBuildings; // espacio por "celda" en Z entre centros
+    // Useful sizes
+    float cellSizeX = buildingSize.x + gapBetweenBuildings; // Space per "cell" in X between centers
+    float cellSizeZ = buildingSize.y + gapBetweenBuildings; // Space per "cell" in Z between centers
 
-    // Tamaño total de un bloque (3 celdas). Ajustamos para que la suma de gaps sea correcta
-    float blockSizeX = 3f * cellSizeX - gapBetweenBuildings; // restamos 1 gap extra para centrar correctamente
+    // Total size of a block (3 cells). Adjust to make the sum of gaps correct
+    float blockSizeX = 3f * cellSizeX - gapBetweenBuildings; // Subtract 1 extra gap to center correctly
     float blockSizeZ = 3f * cellSizeZ - gapBetweenBuildings;
 
-    // Offset inicial para centrar cada bloque alrededor del origen del bloque
+    // Initial offset to center each block around the block origin
     float halfBlockSizeX = blockSizeX * 0.5f;
     float halfBlockSizeZ = blockSizeZ * 0.5f;
 
-    // Generar capas auxiliares primero (calles, intersecciones, aceras, taxis)
+    // Generate auxiliary layers first (streets, intersections, sidewalks, taxis)
     GenerateStreets(parentTransform);
     GenerateIntersections(parentTransform);
     GenerateSidewalks(parentTransform);
     SpawnTaxis(parentTransform);
 
-    // Ahora generar edificios, pero apoyados sobre la altura de la acera
-    float baseY = sidewalkHeightOffset; // ahora la base ya no es 0, los edificios descansan sobre la acera
+    // Now generate buildings, resting on the sidewalk height
+    float baseY = sidewalkHeightOffset; // Now the base is no longer 0, buildings rest on the sidewalk
 
     for (int bx = 0; bx < blocksX; bx++) {
       for (int bz = 0; bz < blocksY; bz++) {
@@ -157,7 +161,7 @@ public class CityGenerator : MonoBehaviour {
             float posX = blockOriginX + localOffsetX;
             float posZ = blockOriginZ + localOffsetZ;
 
-            // Altura aleatoria
+            // Random height
             float height = Random.Range(buildingHeightMin, buildingHeightMax);
 
             // Instantiate
@@ -168,51 +172,52 @@ public class CityGenerator : MonoBehaviour {
             Vector3 newScale = new Vector3(buildingSize.x, height, buildingSize.y);
             go.transform.localScale = newScale;
 
-            // Ajustar posición para que la base quede en sidewalkHeightOffset
+            // Adjust position so the base is at sidewalkHeightOffset
             Vector3 position = new Vector3(posX, baseY + height * 0.5f, posZ);
             go.transform.position = position;
 
             createdBuildings.Add(go);
 
-            // --- Fire spawn determinista según selección previa ---
+            // --- Deterministic fire spawn based on prior selection ---
             if (firePrefab != null && fireIndices != null) {
-              // si el índice global actual está en el conjunto, instanciamos fuego
+              // If the current global index is in the set, instantiate fire
               if (fireIndices.Contains(currentBuildingGlobalIndex)) {
                 Transform anchor = null;
 
-                // si existe child "Roof" y queremos adjuntar ahí, lo usamos
+                // If child "Roof" exists and we want to attach there, use it
                 if (attachFireToRoofChild) {
                   anchor = go.transform.Find("Roof");
                 }
 
-                // Si no hay anchor, usar el transform del edificio mismo
-                Transform fireParent = anchor != null ? anchor : go.transform;
+                // If there is no anchor, use the building's own transform
+                Transform fireParent = anchor != null
+                        ? anchor
+                        : go.transform;
 
-                // calcular posición local para la instancia de fuego:
+                // Calculate local position for the fire instance:
                 Vector3 localPos;
                 if (anchor != null) {
-                  localPos = Vector3.up * fireYOffset; // pequeño ajuste sobre el Roof
-                } else {
+                  localPos = Vector3.up * fireYOffset; // Small adjustment above the Roof
+                }
+                else {
                   float halfHeight = newScale.y * 0.5f;
                   localPos = new Vector3(0f, halfHeight + fireYOffset, 0f);
                 }
 
-                // Instanciar y parentar como hijo para que se mueva con el edificio
+                // Instantiate and parent as a child so it moves with the building
                 ParticleSystem fireInstance = Instantiate(firePrefab, fireParent);
                 fireInstance.transform.localPosition = localPos;
                 fireInstance.transform.localRotation = Quaternion.identity;
 
-                // Asegurar que el sistema de partículas use espacio LOCAL (para moverse con el objeto)
-                var main = fireInstance.main;
+                // Ensure the particle system uses LOCAL space (to move with the object)
+                ParticleSystem.MainModule main = fireInstance.main;
                 main.simulationSpace = ParticleSystemSimulationSpace.Local;
                 fireInstance.transform.localScale = Vector3.one;
                 fireInstance.Play();
               }
             }
-            // Incrementar el índice global después de procesar este edificio
+            // Increment the global index after processing this building
             currentBuildingGlobalIndex++;
-
-
           }
         }
       }
@@ -224,11 +229,10 @@ public class CityGenerator : MonoBehaviour {
     }
     #endif
 
-    Debug.Log($"CityGenerator: Generados {createdBuildings.Count} edificios ({blocksX}x{blocksY} bloques).");
+    Debug.Log($"CityGenerator: Generated {createdBuildings.Count} buildings ({blocksX}x{blocksY} blocks).");
   }
   public void ClearCity() {
-
-    // Destruir el holder raíz completo si existe
+    // Destroy the entire root holder if it exists
     GameObject root = GameObject.Find(defaultHolderName);
     if (root != null) {
       #if UNITY_EDITOR
@@ -238,10 +242,10 @@ public class CityGenerator : MonoBehaviour {
         Destroy(root);
     }
 
-    // limpar lista interna
+    // Clear internal list
     if (createdBuildings != null) createdBuildings.Clear();
 
-    Debug.Log("CityGenerator: Ciudad limpiada.");
+    Debug.Log("CityGenerator: City cleared.");
   }
   Transform CreateOrGetHolder(string name, Transform parent = null) {
     string rootName = defaultHolderName;
@@ -280,7 +284,7 @@ public class CityGenerator : MonoBehaviour {
     float totalSizeX = blocksX * (blockSizeX + streetWidth) - streetWidth;
     float totalSizeZ = blocksY * (blockSizeZ + streetWidth) - streetWidth;
 
-    // Vertical streets (columnas entre bloques)
+    // Vertical streets (columns between blocks)
     for (int bx = 0; bx < blocksX - 1; bx++) {
       float centerX = bx * (blockSizeX + streetWidth) + halfBlockSizeX + streetWidth * 0.5f;
       GameObject strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -291,17 +295,17 @@ public class CityGenerator : MonoBehaviour {
         centerX,
         0f,
         totalSizeZ * 0.5f - totalSizeZ * 0.5f + totalSizeZ * 0.5f
-      ); // centrado en Z
-      // Asignar material si existe
+      ); // Centered in Z
+      // Assign material if it exists
       if (streetMaterial != null) {
         Renderer rend = strip.GetComponent<Renderer>();
         rend.sharedMaterial = streetMaterial;
       }
-      // quitar collider si no se necesita
+      // Remove collider if not needed
       DestroyImmediateIfEditor(strip.GetComponent<Collider>());
     }
 
-    // Horizontal streets (filas entre bloques)
+    // Horizontal streets (rows between blocks)
     for (int bz = 0; bz < blocksY - 1; bz++) {
       float centerZ = bz * (blockSizeZ + streetWidth) + halfBlockSizeZ + streetWidth * 0.5f;
       GameObject strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -327,39 +331,39 @@ public class CityGenerator : MonoBehaviour {
     float halfBlockSizeZ = blockSizeZ * 0.5f;
 
     // Intersection should reach the outer corner of sidewalk rings:
-    float intersectionSizeX = streetWidth + sidewalkWidth - 3f * sidewalkWidth;
-    float intersectionSizeZ = streetWidth + sidewalkWidth - 3f * sidewalkWidth;
-    float yOffset = 0.01f; // ligera separación vertical para evitar z-fighting
-    float thickness = 0.02f; // altura del "plano" de la intersección
+    float intersectionSizeX = streetWidth + sidewalkWidth;
+    float intersectionSizeZ = streetWidth + sidewalkWidth;
+    float yOffset = 0.01f; // Slight vertical separation to prevent z-fighting
+    float thickness = 0.02f; // Height of the intersection "plane"
 
-    // recorremos cruces entre bloques (hay blocksX-1 cruces en X y blocksY-1 en Z)
+    // Iterate through crossings between blocks (there are blocksX-1 crossings in X and blocksY-1 in Z)
     for (int bx = 0; bx < blocksX - 1; bx++) {
-      // centro world X de la calle vertical entre bloque bx y bx+1
+      // World center X of the vertical street between block bx and bx+1
       float centerX = bx * (blockSizeX + streetWidth) + halfBlockSizeX + streetWidth * 0.5f;
 
       for (int bz = 0; bz < blocksY - 1; bz++) {
-        // centro world Z de la calle horizontal entre bloque bz y bz+1
+        // World center Z of the horizontal street between block bz and bz+1
         float centerZ = bz * (blockSizeZ + streetWidth) + halfBlockSizeZ + streetWidth * 0.5f;
 
-        // Crear primitive y parentarlo sin conservar la posición mundial (trabajamos en local)
+        // Create primitive and parent it without preserving world position (we work in local space)
         GameObject inter = GameObject.CreatePrimitive(PrimitiveType.Cube);
         inter.name = $"Intersection_{bx}_{bz}";
         inter.transform.SetParent(interHolder, false);
 
-        // escala: X y Z según intersectionSize, Y = thickness
+        // Scale: X and Z according to intersectionSize, Y = thickness
         inter.transform.localScale = new Vector3(intersectionSizeX, thickness, intersectionSizeZ);
 
-        // calcular center en local respecto al parentTransform (root)
+        // Calculate center in local space relative to parentTransform (root)
         Vector3 centerLocal = new Vector3(
           centerX - parentTransform.position.x,
           0f,
           centerZ - parentTransform.position.z
         );
 
-        // asignar localPosition (añadimos yOffset en Y)
+        // Assign localPosition (add yOffset in Y)
         inter.transform.localPosition = centerLocal + new Vector3(0f, yOffset + thickness * 0.5f, 0f);
 
-        // material y limpieza de collider
+        // Material and collider cleanup
         if (intersectionMaterial != null) {
           Renderer rend = inter.GetComponent<Renderer>();
           rend.sharedMaterial = intersectionMaterial;
@@ -380,27 +384,27 @@ public class CityGenerator : MonoBehaviour {
     float halfBlockSizeX = blockSizeX * 0.5f;
     float halfBlockSizeZ = blockSizeZ * 0.5f;
 
-    // Para cada bloque, crear 4 piezas que formen un anillo alrededor del bloque (N, S, E, W).
-    // Además añadimos pequeñas piezas en las 4 esquinas para que las aceras se vean continuas.
+    // For each block, create 4 pieces that form a ring around the block (N, S, E, W).
+    // Additionally, add small pieces at the 4 corners so that the sidewalks look continuous.
     for (int bx = 0; bx < blocksX; bx++) {
       for (int bz = 0; bz < blocksY; bz++) {
-        // Origen del bloque (misma fórmula que en GenerateCity)
+        // Block origin (same formula as in GenerateCity)
         float blockOriginX = bx * (blockSizeX + streetWidth);
         float blockOriginZ = bz * (blockSizeZ + streetWidth);
 
-        // Centro del bloque
+        // Block center
         float centerX = blockOriginX + halfBlockSizeX;
         float centerZ = blockOriginZ + halfBlockSizeZ;
 
         Debug.Log($"Block {bx},{bz} center(world)=({centerX:F3},{centerZ:F3})");
         Debug.Log($"North expected pos(world)=({centerX:F3},{centerZ + halfBlockSizeZ + sidewalkWidth * 0.5f:F3})");
 
-        // NORTH (parte superior del bloque)
+        // NORTH (top part of the block)
         {
           GameObject north = GameObject.CreatePrimitive(PrimitiveType.Cube);
           north.name = $"Sidewalk_Block_{bx}_{bz}_N";
           north.transform.parent = sidewalkHolder;
-          // ancho en X = blockSizeX, grosor en Z = sidewalkWidth
+          // Width in X = blockSizeX, thickness in Z = sidewalkWidth
           north.transform.localScale = new Vector3(blockSizeX, sidewalkHeightOffset, sidewalkWidth);
           north.transform.position = new Vector3(
             centerX,
@@ -412,7 +416,7 @@ public class CityGenerator : MonoBehaviour {
           Debug.Log($"North actual pos(world) = {north.transform.position}");
         }
 
-        // SOUTH (parte inferior del bloque)
+        // SOUTH (bottom part of the block)
         {
           GameObject south = GameObject.CreatePrimitive(PrimitiveType.Cube);
           south.name = $"Sidewalk_Block_{bx}_{bz}_S";
@@ -427,12 +431,12 @@ public class CityGenerator : MonoBehaviour {
           DestroyImmediateIfEditor(south.GetComponent<Collider>());
         }
 
-        // EAST (lado derecho del bloque)
+        // EAST (right side of the block)
         {
           GameObject east = GameObject.CreatePrimitive(PrimitiveType.Cube);
           east.name = $"Sidewalk_Block_{bx}_{bz}_E";
           east.transform.parent = sidewalkHolder;
-          // grosor en X = sidewalkWidth, largo en Z = blockSizeZ
+          // Thickness in X = sidewalkWidth, length in Z = blockSizeZ
           east.transform.localScale = new Vector3(sidewalkWidth, sidewalkHeightOffset, blockSizeZ);
           east.transform.position = new Vector3(
             centerX + halfBlockSizeX + sidewalkWidth * 0.5f,
@@ -443,7 +447,7 @@ public class CityGenerator : MonoBehaviour {
           DestroyImmediateIfEditor(east.GetComponent<Collider>());
         }
 
-        // WEST (lado izquierdo del bloque)
+        // WEST (left side of the block)
         {
           GameObject west = GameObject.CreatePrimitive(PrimitiveType.Cube);
           west.name = $"Sidewalk_Block_{bx}_{bz}_W";
@@ -458,8 +462,8 @@ public class CityGenerator : MonoBehaviour {
           DestroyImmediateIfEditor(west.GetComponent<Collider>());
         }
 
-        // --- Esquinas: piezas pequeñas en las 4 esquinas del bloque ---
-        // tamaño cuadrado: sidewalkWidth x sidewalkHeightOffset x sidewalkWidth
+        // --- Corners: small pieces at the 4 corners of the block ---
+        // Square size: sidewalkWidth x sidewalkHeightOffset x sidewalkWidth
         {
           // NE
           GameObject cornerNE = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -514,10 +518,10 @@ public class CityGenerator : MonoBehaviour {
           DestroyImmediateIfEditor(cornerSW.GetComponent<Collider>());
         }
 
-        // Nota: esto crea una pieza de esquina por bloque. Si prefieres evitar
-        // geometría superpuesta entre bloques adyacentes, podemos cambiar la
-        // estrategia para crear sólo las esquinas NE por bloque (o solo en
-        // bloques en los bordes), avísame y lo adapto.
+        // Note: This creates one corner piece per block. If you prefer to avoid
+        // overlapping geometry between adjacent blocks, we can change the
+        // strategy to only create the NE corners per block (or only on
+        // edge blocks), let me know and I'll adapt it.
       }
     }
     sidewalkHolder.position = sidewalkOffset;
@@ -548,28 +552,49 @@ public class CityGenerator : MonoBehaviour {
 
           Quaternion rot;
           if (Random.value < 0.5f) {
-            rot = Quaternion.Euler(0f, 0f, 0f); // sin rotación
-          } else {
-            rot = Quaternion.Euler(0f, 90f, 0f); // rotado 90° en Y
+            rot = Quaternion.Euler(0f, 0f, 0f); // No rotation
+          }
+          else {
+            rot = Quaternion.Euler(0f, 90f, 0f); // Rotated 90° on Y
           }
 
           GameObject t = Instantiate(taxiPrefab, pos, Quaternion.identity, vehiclesHolder);
           t.name = $"Taxi_{bx}_{bz}";
-          // añadir luz si no existe
+
+          // Check if there are already lights and if the intensity is enough to create them
           if (t.GetComponentInChildren<Light>() == null && taxiLightIntensity > 0f) {
-            GameObject lightGO = new GameObject("TaxiLight");
-            lightGO.transform.parent = t.transform;
-            lightGO.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            // ----------------------------------------------------
+            // 1. SPOT LIGHT CREATION (Roof Light)
+            // ----------------------------------------------------
+            GameObject spotLightGO = new GameObject("TaxiSpotLight");
+            spotLightGO.transform.parent = t.transform;
+            // Centered and elevated position (on the roof)
+            spotLightGO.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            // We rotate the object so the spot looks down (-90 in X) or up (90 in X)
+            // Since the original code had -90 in X, I will keep it so it points UP
+            spotLightGO.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
 
-            // Rotamos el objeto para que el foco mire hacia arriba
-            lightGO.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            Light spotLt = spotLightGO.AddComponent<Light>();
+            spotLt.type = LightType.Spot;
+            spotLt.intensity = taxiLightIntensity;
+            spotLt.range = taxiLightRange;
+            spotLt.spotAngle = taxiLightAngule;
+            spotLt.shadows = LightShadows.None;
 
-            Light lt = lightGO.AddComponent<Light>();
-            lt.type = LightType.Spot;
-            lt.intensity = taxiLightIntensity;
-            lt.range = taxiLightRange;
-            lt.spotAngle = taxiLightAngule;
-            lt.shadows = LightShadows.None;
+            // ----------------------------------------------------
+            // 2. POINT LIGHT CREATION (Ambient Light)
+            // ----------------------------------------------------
+            GameObject pointLightGO = new GameObject("TaxiPointLight");
+            pointLightGO.transform.parent = t.transform;
+            // Position similar to the Spot Light to illuminate from the center of the taxi
+            pointLightGO.transform.localPosition = new Vector3(0f, 0.2f, 0f);
+            // The Point Light does not need rotation
+
+            Light pointLt = pointLightGO.AddComponent<Light>();
+            pointLt.type = LightType.Point;
+            pointLt.intensity = taxiLightIntensity * 0.5f; // Use a lower intensity for ambient light
+            pointLt.range = taxiLightRange * 0.5f; // Use a smaller range for ambient light
+            pointLt.shadows = LightShadows.None;
           }
           spawned++;
         }
@@ -577,7 +602,7 @@ public class CityGenerator : MonoBehaviour {
     }
   }
 
-  // Helper para destruir colliders en editor sin errores
+  // Helper to destroy colliders in editor without errors
   void DestroyImmediateIfEditor(Component comp) {
     if (comp == null) return;
     #if UNITY_EDITOR
