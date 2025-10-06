@@ -47,6 +47,14 @@ public class CityGenerator : MonoBehaviour {
 
   // Internal list to trank created objects
   readonly List<GameObject> createdBuildings = new List<GameObject>();
+
+  [Header("Fire / damage effects")]
+  public ParticleSystem firePrefab;                // prefab de partículas de fuego (arrastrar en inspector)
+  [Range(0f, 1f)] public float fireSpawnProbability = 0.2f; // probabilidad por edificio (ej. 0.2 = 20%)
+  public float fireYOffset = 0.1f;                 // offset vertical sobre la azotea para evitar z-fighting
+  public bool attachFireToRoofChild = true;        // si true, busca child "Roof" y lo usa como ancla
+  public int maxTotalFires = 100;                  // límite global para evitar exceso de partículas
+
   void Start() {
     if (generateOnStart) {
       GenerateCity();
@@ -70,6 +78,31 @@ public class CityGenerator : MonoBehaviour {
 
     ClearCity(); // limpiar antes de generar
     Random.InitState(randomSeed);
+
+    // ---------- Preparación: elegir índices aleatorios de edificios que tendrán fuego ----------
+    int totalBuildings = blocksX * blocksY * 9; // 3x3 edificios por bloque
+    int firesToSpawn = Mathf.Clamp(Mathf.RoundToInt(totalBuildings * fireSpawnProbability), 0, Mathf.Min(totalBuildings, maxTotalFires));
+
+    HashSet<int> fireIndices = new HashSet<int>();
+    if (firesToSpawn > 0) {
+      // creamos lista de índices [0..totalBuildings-1]
+      List<int> indices = new List<int>(totalBuildings);
+      for (int i = 0; i < totalBuildings; i++) indices.Add(i);
+
+      // Fisher-Yates shuffle usando Random (ya inicializado con Random.InitState(randomSeed))
+      for (int i = indices.Count - 1; i > 0; i--) {
+        int j = Random.Range(0, i + 1);
+        int tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp;
+      }
+
+      // tomamos los primeros firesToSpawn índices mezclados
+      for (int k = 0; k < firesToSpawn; k++) fireIndices.Add(indices[k]);
+
+      Debug.Log($"CityGenerator: seleccionados {fireIndices.Count} edificios para fuego (de {totalBuildings} posibles).");
+    }
+    // variable para rastrear índice global del edificio al crear (debe inicializarse antes de crear edificios)
+    int currentBuildingGlobalIndex = 0;
+    // ---------- fin preparación ----------
 
     // Crear o usar parentHolder
     Transform parentTransform = parentHolder;
@@ -140,6 +173,46 @@ public class CityGenerator : MonoBehaviour {
             go.transform.position = position;
 
             createdBuildings.Add(go);
+
+            // --- Fire spawn determinista según selección previa ---
+            if (firePrefab != null && fireIndices != null) {
+              // si el índice global actual está en el conjunto, instanciamos fuego
+              if (fireIndices.Contains(currentBuildingGlobalIndex)) {
+                Transform anchor = null;
+
+                // si existe child "Roof" y queremos adjuntar ahí, lo usamos
+                if (attachFireToRoofChild) {
+                  anchor = go.transform.Find("Roof");
+                }
+
+                // Si no hay anchor, usar el transform del edificio mismo
+                Transform fireParent = anchor != null ? anchor : go.transform;
+
+                // calcular posición local para la instancia de fuego:
+                Vector3 localPos;
+                if (anchor != null) {
+                  localPos = Vector3.up * fireYOffset; // pequeño ajuste sobre el Roof
+                } else {
+                  float halfHeight = newScale.y * 0.5f;
+                  localPos = new Vector3(0f, halfHeight + fireYOffset, 0f);
+                }
+
+                // Instanciar y parentar como hijo para que se mueva con el edificio
+                ParticleSystem fireInstance = Instantiate(firePrefab, fireParent);
+                fireInstance.transform.localPosition = localPos;
+                fireInstance.transform.localRotation = Quaternion.identity;
+
+                // Asegurar que el sistema de partículas use espacio LOCAL (para moverse con el objeto)
+                var main = fireInstance.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+                fireInstance.transform.localScale = Vector3.one;
+                fireInstance.Play();
+              }
+            }
+            // Incrementar el índice global después de procesar este edificio
+            currentBuildingGlobalIndex++;
+
+
           }
         }
       }
@@ -154,6 +227,7 @@ public class CityGenerator : MonoBehaviour {
     Debug.Log($"CityGenerator: Generados {createdBuildings.Count} edificios ({blocksX}x{blocksY} bloques).");
   }
   public void ClearCity() {
+
     // Destruir el holder raíz completo si existe
     GameObject root = GameObject.Find(defaultHolderName);
     if (root != null) {

@@ -505,6 +505,11 @@ MonoBehaviour:
   taxiLightRange: 10
   taxiLightAngule: 80
   generateOnStart: 1
+  firePrefab: {fileID: 7832495194037083216, guid: c608d214d1629da479b58e0e856415ca, type: 3}
+  fireSpawnProbability: 0.2
+  fireYOffset: 0.2
+  attachFireToRoofChild: 1
+  maxTotalFires: 2000
 --- !u!1 &1262738538
 GameObject:
   m_ObjectHideFlags: 0
